@@ -25,61 +25,29 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#include "config.h"
+#include "QuirkBehaviorDeclarations.h"
 
-#include <wtf/Assertions.h>
-#include <wtf/BitSet.h>
-#include <wtf/EnumTraits.h>
+#include "QuirkBehaviorDefinitions.h"
+#include <algorithm>
+#include <array>
+#include <ranges>
 
 namespace WebCore {
 
-enum class QuirkBehaviorID {
+static constexpr std::array<QuirkBehavior, static_cast<size_t>(QuirkBehaviorID::NumberOfIDs)> declarations { {
 <%- @behaviors.each do |behavior| -%>
-    <%= behavior.id %>,
+    QuirkBehaviors::<%= behavior.constantName %>,
 <%- end -%>
+} };
 
-    NumberOfIDs
-};
+static_assert(std::ranges::all_of(std::views::iota(0uz, declarations.size()), [](size_t index) {
+    return static_cast<size_t>(declarations[index].id) == index;
+}), "declarations must be in QuirkBehaviorID order");
 
-using QuirkBitSet = WTF::BitSet<static_cast<size_t>(QuirkBehaviorID::NumberOfIDs)>;
-
-namespace BuildCondition {
-
-<%- @buildConditions.each do |condition| -%>
-<%- if condition.guard -%>
-#if <%= condition.guard %>
-constexpr bool <%= condition.name %> = true;
-#else
-constexpr bool <%= condition.name %> = false;
-#endif
-<%- else -%>
-constexpr bool <%= condition.name %> = true;
-<%- end -%>
-<%- end -%>
-
-} // namespace BuildCondition
-
-enum class BuildConditionID : uint8_t {
-<%- @buildConditions.each do |condition| -%>
-    <%= condition.name %>,
-<%- end -%>
-};
-
-constexpr bool isEnabled(BuildConditionID condition)
+const QuirkBehavior& quirkBehaviorDeclaration(QuirkBehaviorID id)
 {
-    switch (condition) {
-<%- @buildConditions.each do |condition| -%>
-    case BuildConditionID::<%= condition.name %>: return BuildCondition::<%= condition.name %>;
-<%- end -%>
-    }
-    RELEASE_ASSERT_NOT_REACHED();
+    return declarations[static_cast<size_t>(id)];
 }
 
 } // namespace WebCore
-
-namespace WTF {
-template<> struct EnumTraits<WebCore::QuirkBehaviorID> {
-    static constexpr int min = 0;
-    static constexpr int max = static_cast<int>(WebCore::QuirkBehaviorID::NumberOfIDs) - 1;
-};
-} // namespace WTF
